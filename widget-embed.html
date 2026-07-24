@@ -1,0 +1,176 @@
+<style>
+  #chat-shell-wrap * { box-sizing: border-box; }
+  #chat-shell-wrap {
+    --ink: #1c2b2d;
+    --paper: #f6f3ec;
+    --moss: #2f5d50;
+    --moss-dark: #24473d;
+    --clay: #c6693f;
+    --line: #dcd6c6;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  #chat-shell {
+    display: flex;
+    flex-direction: column;
+    height: 600px;
+    max-width: 420px;
+    margin: 0 auto;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(28, 43, 45, 0.12);
+  }
+  #chat-header {
+    background: var(--moss);
+    color: var(--paper);
+    padding: 14px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #chat-header .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #8fd6b8;
+    box-shadow: 0 0 0 3px rgba(143,214,184,0.25);
+  }
+  #chat-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #chat-shell .msg {
+    max-width: 82%;
+    padding: 10px 13px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+  }
+  #chat-shell .msg.user {
+    align-self: flex-end;
+    background: var(--moss);
+    color: var(--paper);
+    border-bottom-right-radius: 3px;
+  }
+  #chat-shell .msg.bot {
+    align-self: flex-start;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-bottom-left-radius: 3px;
+  }
+  #chat-shell .msg.typing {
+    align-self: flex-start;
+    color: #7a8583;
+    font-style: italic;
+    font-size: 13px;
+  }
+  #chat-form {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--line);
+    background: #fff;
+  }
+  #chat-input {
+    flex: 1;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 10px 14px;
+    font-size: 14px;
+    outline: none;
+  }
+  #chat-input:focus {
+    border-color: var(--moss);
+  }
+  #chat-send {
+    background: var(--clay);
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    padding: 0 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #chat-send:hover { background: #b25834; }
+  #chat-send:disabled { opacity: 0.5; cursor: default; }
+</style>
+
+<div id="chat-shell-wrap">
+  <div id="chat-shell">
+    <div id="chat-header"><span class="dot"></span> Chat with us</div>
+    <div id="chat-log"></div>
+    <form id="chat-form">
+      <input id="chat-input" type="text" placeholder="Type a message…" autocomplete="off" />
+      <button id="chat-send" type="submit">Send</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  // ⚠️ Change this to the web address of YOUR deployed server.js
+  const PROXY_URL = "https://YOUR-DEPLOYED-SERVER-URL.example.com/api/chat";
+
+  (function() {
+    const log = document.getElementById("chat-log");
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("chat-input");
+    const sendBtn = document.getElementById("chat-send");
+    let threadId = null;
+
+    function addMessage(text, who) {
+      const el = document.createElement("div");
+      el.className = `msg ${who}`;
+      el.textContent = text;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+      return el;
+    }
+
+    addMessage("Hi! How can I help you today?", "bot");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+
+      addMessage(message, "user");
+      input.value = "";
+      sendBtn.disabled = true;
+      const typingEl = addMessage("Typing…", "typing");
+
+      try {
+        const resp = await fetch(PROXY_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message, threadId }),
+        });
+        const data = await resp.json();
+        typingEl.remove();
+
+        if (!resp.ok) {
+          addMessage("Sorry, something went wrong. Please try again shortly.", "bot");
+          console.error(data.error);
+        } else {
+          threadId = data.threadId;
+          addMessage(data.reply, "bot");
+        }
+      } catch (err) {
+        typingEl.remove();
+        addMessage("Sorry, I couldn't reach the assistant right now.", "bot");
+        console.error(err);
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    });
+  })();
+</script>
